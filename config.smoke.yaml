@@ -1,0 +1,47 @@
+server:
+  addr: ":8080"
+
+database:
+  dsn: ""
+
+ai:
+  # 建议你环境里设置 AI_BASE_URL / AI_API_KEY（或 OPENROUTER_API_KEY 等）。
+  base_url: "https://api.openai.com/v1"
+  api_key: "${AI_API_KEY}"
+  model: "gpt-4o-mini"
+  score_model: "gpt-4o-mini"
+  article_model: "gpt-4o-mini"
+  max_retries: 0
+  request_timeout: "25s"
+
+crawler:
+  sources: ["arxiv"]
+  arxiv_max_results: 1
+  lookback_hours: 24
+
+filter:
+  top_n: 1
+
+summarizer:
+  min_words: 400
+  max_words: 800
+
+image:
+  dir: "./tmp_images"
+  min_width: 500
+  min_height: 500
+  download_timeout: "10s"
+  pdf_fallback: false
+  pdf_download_timeout: "10s"
+
+wechat:
+  publish_mode: "none"
+  author: "smoke"
+  default_thumb: "default.png"
+
+scheduler:
+  enabled: false
+
+oss:
+  enabled: false
+

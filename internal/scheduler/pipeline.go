@@ -21,7 +21,8 @@ import (
 // Deps 流水线依赖注入。
 type Deps struct {
 	Config    *config.Config
-	Arxiv     *crawler.Arxiv
+	Crawler   crawler.Source
+	Unpaywall *crawler.UnpaywallPDFResolver
 	Scorer    *filter.Scorer
 	Generator *summarizer.Generator
 	Images    *image.Extractor
@@ -32,11 +33,32 @@ type Deps struct {
 // RunOnce 执行完整流程：抓取 → 评分 → TopN → 成文 → 配图 → 存库 → 发布。
 func RunOnce(ctx context.Context, d Deps) error {
 	cfg := d.Config
-	papers, err := d.Arxiv.FetchRecent(ctx, cfg.Crawler.ArxivMaxResults)
+	papers, err := d.Crawler.FetchRecent(ctx, cfg.Crawler.ArxivMaxResults)
 	if err != nil {
 		return fmt.Errorf("crawl: %w", err)
 	}
+
+	if d.Unpaywall != nil {
+		papers, err = d.Unpaywall.Resolve(ctx, papers)
+		if err != nil {
+			return fmt.Errorf("unpaywall: %w", err)
+		}
+	}
+
+	// fail_fast + require_pdf：在进入 AI/生成前过滤掉无法配图的论文。
+	if cfg.RequirePDF() {
+		filtered := papers[:0]
+		for _, p := range papers {
+			if strings.TrimSpace(p.PDFURL) != "" {
+				filtered = append(filtered, p)
+			}
+		}
+		papers = filtered
+	}
 	if len(papers) == 0 {
+		if cfg.FailFast() {
+			return fmt.Errorf("no papers with pdf available")
+		}
 		logger.L.Info("no papers in window, skip")
 		return nil
 	}

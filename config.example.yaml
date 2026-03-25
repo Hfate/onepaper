@@ -25,6 +25,12 @@ ai:
   request_timeout: "180s"
 
 crawler:
+  # 论文抓取来源；默认仅 arxiv，保证可用性。
+  sources: ["arxiv"]
+  # 过滤缺失 PDFURL 的论文；true 时配合 fail_fast 可快速失败。
+  require_pdf: true
+  # 过滤后若无可用论文则直接错误退出（避免在 AI/配图上浪费时间）。
+  fail_fast: true
   arxiv_max_results: 20
   lookback_hours: 24
 
@@ -45,6 +51,12 @@ image:
   pdf_fallback: false
   # 仅当 pdf_fallback: true 时生效；整本 PDF 较慢时可加大
   pdf_download_timeout: "60s"
+
+unpaywall:
+  # 建议填写：用于礼貌访问 Unpaywall（缺失则不做 PDF 补齐）
+  email: "${UNPAYWALL_EMAIL}"
+  # 默认值无需改：https://api.unpaywall.org/v2/
+  base_url: "https://api.unpaywall.org/v2/"
 
 wechat:
   app_id: "${WECHAT_APP_ID}"

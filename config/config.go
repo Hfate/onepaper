@@ -30,8 +30,11 @@ type Config struct {
 	} `yaml:"ai"`
 
 	Crawler struct {
-		ArxivMaxResults int `yaml:"arxiv_max_results"`
-		LookbackHours   int `yaml:"lookback_hours"`
+		ArxivMaxResults int      `yaml:"arxiv_max_results"`
+		LookbackHours   int      `yaml:"lookback_hours"`
+		Sources         []string `yaml:"sources"`
+		RequirePDF      *bool    `yaml:"require_pdf"` // true 时过滤缺失 PDFURL 的论文（配合 fail_fast 快速失败）
+		FailFast        *bool    `yaml:"fail_fast"`   // true 时过滤后无可用论文则直接错误退出
 	} `yaml:"crawler"`
 
 	Filter struct {
@@ -51,6 +54,11 @@ type Config struct {
 		PdfDownloadTimeout string `yaml:"pdf_download_timeout"` // 整本 PDF 下载
 		PdfFallback        bool   `yaml:"pdf_fallback"`         // true 时 HTML 无图再下 PDF；默认 false 快速失败
 	} `yaml:"image"`
+
+	Unpaywall struct {
+		Email   string `yaml:"email"`    // Unpaywall 建议填写；用于礼貌访问和统计
+		BaseURL string `yaml:"base_url"` // 默认 https://api.unpaywall.org/v2/
+	} `yaml:"unpaywall"`
 
 	WeChat struct {
 		AppID          string `yaml:"app_id"`
@@ -146,6 +154,18 @@ func applyDefaults(cfg *Config) {
 	if cfg.Crawler.LookbackHours <= 0 {
 		cfg.Crawler.LookbackHours = 24
 	}
+	if len(cfg.Crawler.Sources) == 0 {
+		// 默认只用 arXiv，保证“开箱即用”。
+		cfg.Crawler.Sources = []string{"arxiv"}
+	}
+	if cfg.Crawler.FailFast == nil {
+		v := true
+		cfg.Crawler.FailFast = &v
+	}
+	if cfg.Crawler.RequirePDF == nil {
+		v := true
+		cfg.Crawler.RequirePDF = &v
+	}
 	if cfg.Filter.TopN <= 0 {
 		cfg.Filter.TopN = 5
 	}
@@ -169,6 +189,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Image.PdfDownloadTimeout == "" {
 		cfg.Image.PdfDownloadTimeout = "60s"
+	}
+	if strings.TrimSpace(cfg.Unpaywall.BaseURL) == "" {
+		cfg.Unpaywall.BaseURL = "https://api.unpaywall.org/v2/"
 	}
 	if cfg.WeChat.PublishMode == "" {
 		cfg.WeChat.PublishMode = "draft"
@@ -200,6 +223,22 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("wechat.publish_mode must be draft, publish, or none")
 	}
 	return nil
+}
+
+// RequirePDF 是否要求论文必须具备 PDFURL（缺失则在抓取后过滤）。
+func (c *Config) RequirePDF() bool {
+	if c.Crawler.RequirePDF == nil {
+		return true
+	}
+	return *c.Crawler.RequirePDF
+}
+
+// FailFast 过滤后若没有可用论文是否直接失败。
+func (c *Config) FailFast() bool {
+	if c.Crawler.FailFast == nil {
+		return true
+	}
+	return *c.Crawler.FailFast
 }
 
 // ImageDownloadTimeout 解析 HTML/配图小图下载超时。

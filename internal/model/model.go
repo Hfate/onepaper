@@ -9,6 +9,7 @@ type Paper struct {
 	Abstract  string
 	Authors   []string
 	URL       string
+	DOI       string
 	PDFURL    string
 	Published time.Time
 	Source    string

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -45,9 +46,62 @@ func main() {
 	}
 
 	aiClient := ai.New(cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.MaxRetries, cfg.AIRequestTimeout())
-	arxiv := &crawler.Arxiv{
-		MaxResults:    cfg.Crawler.ArxivMaxResults,
-		LookbackHours: cfg.Crawler.LookbackHours,
+
+	var sources []crawler.Source
+	for _, name := range cfg.Crawler.Sources {
+		switch strings.ToLower(strings.TrimSpace(name)) {
+		case "arxiv":
+			sources = append(sources, &crawler.Arxiv{
+				HTTP:          &http.Client{Timeout: 45 * time.Second},
+				MaxResults:    cfg.Crawler.ArxivMaxResults,
+				LookbackHours: cfg.Crawler.LookbackHours,
+			})
+		case "openalex":
+			sources = append(sources, &crawler.OpenAlex{
+				HTTP:          &http.Client{Timeout: 45 * time.Second},
+				LookbackHours: cfg.Crawler.LookbackHours,
+			})
+		case "pubmed":
+			sources = append(sources, &crawler.PubMed{
+				HTTP:          &http.Client{Timeout: 45 * time.Second},
+				LookbackHours: cfg.Crawler.LookbackHours,
+			})
+		case "crossref":
+			sources = append(sources, &crawler.Crossref{
+				HTTP:          &http.Client{Timeout: 45 * time.Second},
+				LookbackHours: cfg.Crawler.LookbackHours,
+			})
+		case "semantic_scholar":
+			sources = append(sources, &crawler.SemanticScholar{
+				HTTP:          &http.Client{Timeout: 45 * time.Second},
+				LookbackHours: cfg.Crawler.LookbackHours,
+			})
+		default:
+			logger.L.Warn("unknown source", "source", name)
+		}
+	}
+	if len(sources) == 0 {
+		sources = append(sources, &crawler.Arxiv{
+			HTTP:          &http.Client{Timeout: 45 * time.Second},
+			MaxResults:    cfg.Crawler.ArxivMaxResults,
+			LookbackHours: cfg.Crawler.LookbackHours,
+		})
+	}
+
+	var crawlerSource crawler.Source
+	if len(sources) == 1 {
+		crawlerSource = sources[0]
+	} else {
+		crawlerSource = &crawler.MultiSource{Sources: sources}
+	}
+
+	var unpaywall *crawler.UnpaywallPDFResolver
+	if strings.TrimSpace(cfg.Unpaywall.Email) != "" {
+		unpaywall = &crawler.UnpaywallPDFResolver{
+			Email:   cfg.Unpaywall.Email,
+			BaseURL: cfg.Unpaywall.BaseURL,
+			HTTP:    &http.Client{Timeout: 30 * time.Second},
+		}
 	}
 	scorer := &filter.Scorer{Client: aiClient, Model: cfg.AI.ScoreModel}
 	gen := &summarizer.Generator{
@@ -77,7 +131,8 @@ func main() {
 
 	deps := scheduler.Deps{
 		Config:    cfg,
-		Arxiv:     arxiv,
+		Crawler:   crawlerSource,
+		Unpaywall: unpaywall,
 		Scorer:    scorer,
 		Generator: gen,
 		Images:    img,
