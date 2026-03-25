@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -111,12 +112,13 @@ func (a *Arxiv) getWithRetry(ctx context.Context, rawURL string) ([]byte, int, e
 	var lastErr error
 	var lastStatus int
 	var body []byte
-	for attempt := 0; attempt < 4; attempt++ {
+	for attempt := 0; attempt < 6; attempt++ {
 		if attempt > 0 {
+			wait := backoffDelay(attempt)
 			select {
 			case <-ctx.Done():
 				return nil, 0, ctx.Err()
-			case <-time.After(time.Duration(attempt) * 2 * time.Second):
+			case <-time.After(wait):
 			}
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -141,9 +143,26 @@ func (a *Arxiv) getWithRetry(ctx context.Context, rawURL string) ([]byte, int, e
 				lastErr = fmt.Errorf("arxiv api error entry in feed")
 				continue
 			}
+			// arXiv occasionally returns a truncated Atom feed (still 200),
+			// which later fails XML parsing with "unexpected EOF".
+			if looksTruncatedAtomFeed(b) {
+				lastErr = fmt.Errorf("arxiv atom feed looks truncated")
+				continue
+			}
 			return b, resp.StatusCode, nil
 		}
-		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+		if resp.StatusCode == http.StatusTooManyRequests {
+			lastErr = fmt.Errorf("arxiv http %d", resp.StatusCode)
+			if d := retryAfterDelay(resp.Header.Get("Retry-After")); d > 0 {
+				select {
+				case <-ctx.Done():
+					return nil, 0, ctx.Err()
+				case <-time.After(d):
+				}
+			}
+			continue
+		}
+		if resp.StatusCode >= 500 {
 			lastErr = fmt.Errorf("arxiv http %d", resp.StatusCode)
 			continue
 		}
@@ -153,6 +172,60 @@ func (a *Arxiv) getWithRetry(ctx context.Context, rawURL string) ([]byte, int, e
 		return body, lastStatus, fmt.Errorf("%w: last status %d", lastErr, lastStatus)
 	}
 	return body, lastStatus, fmt.Errorf("arxiv: exhausted retries, status %d", lastStatus)
+}
+
+func looksTruncatedAtomFeed(data []byte) bool {
+	s := strings.TrimSpace(string(data))
+	if s == "" {
+		return true
+	}
+	// Most valid responses start with XML declaration or <feed>.
+	if !strings.HasPrefix(s, "<?xml") && !strings.HasPrefix(s, "<feed") {
+		return false
+	}
+	// A complete Atom feed must have a closing </feed>.
+	return !strings.Contains(s, "</feed>")
+}
+
+func retryAfterDelay(v string) time.Duration {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return 0
+	}
+	// Retry-After: <seconds>
+	if secs, err := strconv.Atoi(v); err == nil && secs > 0 {
+		// add a small cushion
+		return time.Duration(secs)*time.Second + 500*time.Millisecond
+	}
+	// Retry-After: HTTP-date
+	if t, err := http.ParseTime(v); err == nil {
+		d := time.Until(t) + 500*time.Millisecond
+		if d < 0 {
+			return 0
+		}
+		return d
+	}
+	return 0
+}
+
+func backoffDelay(attempt int) time.Duration {
+	// Exponential backoff with a tiny deterministic jitter.
+	// attempt starts at 1 for the first wait.
+	base := 1500 * time.Millisecond
+	if attempt < 1 {
+		attempt = 1
+	}
+	d := base
+	for i := 1; i < attempt; i++ {
+		d *= 2
+		if d >= 30*time.Second {
+			d = 30 * time.Second
+			break
+		}
+	}
+	// jitter in [0, 250ms)
+	jitter := time.Duration(time.Now().UnixNano()%250_000_000) * time.Nanosecond
+	return d + jitter
 }
 
 func isArxivAPIErrorBody(data []byte) bool {
