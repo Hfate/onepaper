@@ -44,7 +44,7 @@ func main() {
 		defer db.Close()
 	}
 
-	aiClient := ai.New(cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.MaxRetries)
+	aiClient := ai.New(cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.MaxRetries, cfg.AIRequestTimeout())
 	arxiv := &crawler.Arxiv{
 		MaxResults:    cfg.Crawler.ArxivMaxResults,
 		LookbackHours: cfg.Crawler.LookbackHours,

@@ -26,15 +26,19 @@ type Client struct {
 }
 
 // New 创建客户端。baseURL 例如 https://api.openai.com/v1（无尾部斜杠）。
-func New(baseURL, apiKey string, maxRetries int) *Client {
-	if maxRetries <= 0 {
-		maxRetries = 3
+// maxRetries 为失败后额外重试次数（0 表示只请求一次）；timeout<=0 时用 45s。
+func New(baseURL, apiKey string, maxRetries int, timeout time.Duration) *Client {
+	if maxRetries < 0 {
+		maxRetries = 0
+	}
+	if timeout <= 0 {
+		timeout = 45 * time.Second
 	}
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
 		httpClient: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: timeout,
 		},
 		maxRetries: maxRetries,
 		limiter:    rate.NewLimiter(rate.Limit(20), 5),
@@ -102,28 +106,47 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req ChatReque
 			time.Sleep(backoff(attempt))
 			continue
 		}
-		b, _ := io.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			logger.L.Warn("ai read body failed", "attempt", attempt, "err", err)
+			time.Sleep(backoff(attempt))
+			continue
+		}
+
+		status := resp.StatusCode
+		bodyStr := string(b)
+		if strings.TrimSpace(bodyStr) == "" {
+			lastErr = fmt.Errorf("empty response body (status %d)", status)
+			logger.L.Warn("ai empty response", "attempt", attempt, "status", status)
+			time.Sleep(backoff(attempt))
+			continue
+		}
 
 		var out ChatResponse
 		if err := json.Unmarshal(b, &out); err != nil {
 			lastErr = err
-			logger.L.Warn("ai decode failed", "attempt", attempt, "body", truncate(string(b), 500))
+			preview := strings.TrimSpace(bodyStr)
+			if len(preview) > 500 {
+				preview = preview[:500] + "..."
+			}
+			logger.L.Warn("ai decode failed", "attempt", attempt, "status", status, "body", preview)
 			time.Sleep(backoff(attempt))
 			continue
 		}
 		if out.Error != nil {
 			lastErr = fmt.Errorf("%s", out.Error.Message)
-			if retryableStatus(resp.StatusCode) || isRateLimit(out.Error.Message) {
-				logger.L.Warn("ai api error", "attempt", attempt, "msg", out.Error.Message)
+			if retryableStatus(status) || isRateLimit(out.Error.Message) {
+				logger.L.Warn("ai api error", "attempt", attempt, "status", status, "msg", out.Error.Message)
 				time.Sleep(backoff(attempt))
 				continue
 			}
 			return "", lastErr
 		}
-		if resp.StatusCode >= 400 {
-			lastErr = fmt.Errorf("http %d: %s", resp.StatusCode, truncate(string(b), 500))
-			if retryableStatus(resp.StatusCode) {
+		if status >= 400 {
+			lastErr = fmt.Errorf("http %d: %s", status, truncate(bodyStr, 500))
+			if retryableStatus(status) {
 				time.Sleep(backoff(attempt))
 				continue
 			}
@@ -144,11 +167,11 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req ChatReque
 
 func backoff(attempt int) time.Duration {
 	if attempt <= 0 {
-		return 200 * time.Millisecond
+		return 100 * time.Millisecond
 	}
-	d := time.Duration(1<<uint(attempt)) * 200 * time.Millisecond
-	if d > 10*time.Second {
-		return 10 * time.Second
+	d := time.Duration(1<<uint(attempt)) * 100 * time.Millisecond
+	if d > 2*time.Second {
+		return 2 * time.Second
 	}
 	return d
 }

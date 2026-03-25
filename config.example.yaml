@@ -19,7 +19,10 @@ ai:
   model: "gpt-4o-mini"
   score_model: "gpt-4o-mini"
   article_model: "gpt-4o-mini"
-  max_retries: 3
+  # 失败后额外重试次数；0 表示各请求只试一次（快速失败）。稳态可调 2–3
+  max_retries: 0
+  # 单次 /chat/completions 超时；长文易超时可设 120s–300s
+  request_timeout: "45s"
 
 crawler:
   arxiv_max_results: 20

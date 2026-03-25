@@ -22,7 +22,8 @@ ai:
   model: "gpt-4o-mini"
   score_model: "gpt-4o-mini"
   article_model: "gpt-4o-mini"
-  max_retries: 3
+  max_retries: 0
+  request_timeout: "45s"
 
 crawler:
   arxiv_max_results: 20

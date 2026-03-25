@@ -20,12 +20,13 @@ type Config struct {
 	} `yaml:"database"`
 
 	AI struct {
-		BaseURL      string `yaml:"base_url"`
-		APIKey       string `yaml:"api_key"`
-		Model        string `yaml:"model"`
-		ScoreModel   string `yaml:"score_model"`
-		ArticleModel string `yaml:"article_model"`
-		MaxRetries   int    `yaml:"max_retries"`
+		BaseURL        string `yaml:"base_url"`
+		APIKey         string `yaml:"api_key"`
+		Model          string `yaml:"model"`
+		ScoreModel     string `yaml:"score_model"`
+		ArticleModel   string `yaml:"article_model"`
+		MaxRetries     int    `yaml:"max_retries"`
+		RequestTimeout string `yaml:"request_timeout"` // 单次 /chat/completions 超时（长文生成可 180s–300s）
 	} `yaml:"ai"`
 
 	Crawler struct {
@@ -132,8 +133,11 @@ func applyDefaults(cfg *Config) {
 	if cfg.AI.ArticleModel == "" {
 		cfg.AI.ArticleModel = cfg.AI.Model
 	}
-	if cfg.AI.MaxRetries <= 0 {
-		cfg.AI.MaxRetries = 3
+	if cfg.AI.MaxRetries < 0 {
+		cfg.AI.MaxRetries = 0
+	}
+	if cfg.AI.RequestTimeout == "" {
+		cfg.AI.RequestTimeout = "45s"
 	}
 	if cfg.Crawler.ArxivMaxResults <= 0 {
 		cfg.Crawler.ArxivMaxResults = 20
@@ -211,6 +215,15 @@ func (c *Config) ImagePDFDownloadTimeout() time.Duration {
 	d, err := time.ParseDuration(c.Image.PdfDownloadTimeout)
 	if err != nil {
 		return 60 * time.Second
+	}
+	return d
+}
+
+// AIRequestTimeout 解析 LLM HTTP 单次请求超时。
+func (c *Config) AIRequestTimeout() time.Duration {
+	d, err := time.ParseDuration(c.AI.RequestTimeout)
+	if err != nil {
+		return 45 * time.Second
 	}
 	return d
 }
