@@ -20,23 +20,35 @@ type Generator struct {
 }
 
 type articleJSON struct {
-	Title    string `json:"title"`
-	Intro    string `json:"intro"`
-	Sections []struct {
-		PaperID string `json:"paper_id"`
-		Heading string `json:"heading"`
-		Body    string `json:"body"`
+	Title         string `json:"title"`
+	CoreViewpoint string `json:"core_viewpoint"`
+	Intro         string `json:"intro"`
+	Sections      []struct {
+		PaperID      string `json:"paper_id"`
+		Heading      string `json:"heading"`
+		ShortComment string `json:"short_comment"`
+		Body         string `json:"body"`
 	} `json:"sections"`
 	Summary string `json:"summary"`
 }
 
-const articlePrompt = `You are a Chinese science writer for WeChat. Write a cohesive popular-science article covering EXACTLY the papers listed.
-Requirements:
-- Language: Simplified Chinese, vivid but accurate, no hype without basis.
-- Total length about %d–%d Chinese characters (not counting spaces).
-- Structure: catchy title, opening hook (question or counterintuitive fact), one section per paper, closing summary on trends or reflection.
-- Each section must reference the paper's core idea for a general audience.
-- Return ONLY valid JSON with keys: title, intro, sections (array of {paper_id, heading, body}), summary.
+const articlePrompt = `You are a Chinese science writer for WeChat. Produce ONE cohesive popular-science article that covers EXACTLY the papers listed (one section per paper, same order as input).
+Fixed structure (must follow):
+1) title: catchy, accurate.
+2) core_viewpoint: 2–4 sentences in Simplified Chinese stating the single main thesis of the whole piece (what readers should take away).
+3) intro: opening hook (question or counterintuitive fact), leading into the topic; do not repeat core_viewpoint verbatim.
+4) sections: one object per paper. Each must have:
+   - paper_id: MUST match the paper's "id" from the input list exactly.
+   - heading: section title for general readers.
+   - short_comment: 1–3 short sentences: your brief judgment or takeaway on this paper (tone: calm, critical-friendly).
+   - body: main explanation for lay readers (core idea, why it matters); no need to repeat short_comment verbatim.
+5) summary: closing reflection or trend (1–3 short paragraphs).
+
+Language: Simplified Chinese, vivid but accurate, no hype without basis.
+Total length about %d–%d Chinese characters (not counting spaces), spread across intro, sections, and summary.
+
+Return ONLY valid JSON with keys: title, core_viewpoint, intro, sections (array of {paper_id, heading, short_comment, body}), summary.
+
 Papers (JSON array):
 %s`
 
@@ -76,19 +88,21 @@ func (g *Generator) GenerateArticle(ctx context.Context, papers []model.Paper) (
 		return model.Article{}, fmt.Errorf("parse article json: %w", err)
 	}
 	art := model.Article{
-		Title:   strings.TrimSpace(aj.Title),
-		Intro:   strings.TrimSpace(aj.Intro),
-		Summary: strings.TrimSpace(aj.Summary),
+		Title:         strings.TrimSpace(aj.Title),
+		CoreViewpoint: strings.TrimSpace(aj.CoreViewpoint),
+		Intro:         strings.TrimSpace(aj.Intro),
+		Summary:       strings.TrimSpace(aj.Summary),
 	}
 	for _, s := range aj.Sections {
 		art.Sections = append(art.Sections, model.ArticleSection{
-			PaperID: strings.TrimSpace(s.PaperID),
-			Heading: strings.TrimSpace(s.Heading),
-			Body:    strings.TrimSpace(s.Body),
+			PaperID:      strings.TrimSpace(s.PaperID),
+			Heading:      strings.TrimSpace(s.Heading),
+			ShortComment: strings.TrimSpace(s.ShortComment),
+			Body:         strings.TrimSpace(s.Body),
 		})
 	}
-	if art.Title == "" || len(art.Sections) == 0 {
-		return model.Article{}, fmt.Errorf("incomplete article from model")
+	if art.Title == "" || art.CoreViewpoint == "" || len(art.Sections) == 0 {
+		return model.Article{}, fmt.Errorf("incomplete article from model (need title, core_viewpoint, and sections)")
 	}
 	logger.L.Info("article generated", "title", art.Title, "sections", len(art.Sections))
 	return art, nil

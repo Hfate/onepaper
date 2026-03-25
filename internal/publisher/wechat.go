@@ -58,6 +58,7 @@ func (p *WeChatPublisher) Publish(ctx context.Context, article *model.Article, r
 	_ = ctx
 	mode := strings.ToLower(strings.TrimSpace(p.cfg.PublishMode))
 	if mode == "none" {
+		article.HTML = render(*article)
 		logger.L.Info("wechat publish skipped", "mode", mode)
 		return nil
 	}
@@ -108,7 +109,11 @@ func (p *WeChatPublisher) Publish(ctx context.Context, article *model.Article, r
 		logger.L.Info("wechat default thumb used", "path", path)
 	}
 
-	digest := truncateRunes(stripHTML(article.Intro), 120)
+	digestSrc := strings.TrimSpace(article.Intro)
+	if digestSrc == "" {
+		digestSrc = strings.TrimSpace(article.CoreViewpoint)
+	}
+	digest := truncateRunes(stripHTML(digestSrc), 120)
 	da := &draft.Article{
 		Title:            article.Title,
 		Author:           p.cfg.Author,

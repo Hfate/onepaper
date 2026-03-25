@@ -32,20 +32,24 @@ type PaperScore struct {
 
 // ArticleSection 公众号文章中的一节（对应一篇论文）。
 type ArticleSection struct {
-	PaperID    string
-	Heading    string
-	Body       string
-	LocalImage string // 本地路径，发布前填充
-	ImageURL   string // 微信图床 URL，上传后填充
+	PaperID      string
+	Heading      string
+	Body         string
+	ShortComment string // 简要评论（模型生成）
+	AuthorsLine  string // 作者展示行（由程序从 Paper 回填）
+	SourceURL    string // 原文链接（由程序从 Paper.URL 回填）
+	LocalImage   string // 本地路径，发布前填充
+	ImageURL     string // 微信图床 URL，上传后填充
 }
 
 // Article 生成的中文科普稿。
 type Article struct {
-	Title    string
-	Intro    string
-	Sections []ArticleSection
-	Summary  string
-	HTML     string // RenderHTML 输出
+	Title         string
+	CoreViewpoint string // 全文核心观点（模型生成）
+	Intro         string
+	Sections      []ArticleSection
+	Summary       string
+	HTML          string // RenderHTML 输出
 }
 
 // ArticleRecord DB 中的文章记录。

@@ -26,7 +26,8 @@ type Client struct {
 }
 
 // New 创建客户端。baseURL 例如 https://api.openai.com/v1（无尾部斜杠）。
-// maxRetries 为失败后额外重试次数（0 表示只请求一次）；timeout<=0 时用 45s。
+// maxRetries 为失败后额外重试次数；ChatCompletion 至少会尝试 chatCompletionMinAttempts 次（应对空响应等）。
+// timeout<=0 时用 45s。
 func New(baseURL, apiKey string, maxRetries int, timeout time.Duration) *Client {
 	if maxRetries < 0 {
 		maxRetries = 0
@@ -73,11 +74,19 @@ type ChatResponse struct {
 	} `json:"error"`
 }
 
+// chatCompletionMinAttempts 即使 max_retries=0 也至少尝试这么多次：网关偶发 HTTP 200 空 body、
+// 短暂 429/5xx 时一次重试往往成功；非可重试错误（如 401）仍会立即返回。
+const chatCompletionMinAttempts = 3
+
 // ChatCompletion 调用 /v1/chat/completions，带重试。
 func (c *Client) ChatCompletion(ctx context.Context, model string, req ChatRequest) (string, error) {
 	req.Model = model
+	maxAttempts := c.maxRetries + 1
+	if maxAttempts < chatCompletionMinAttempts {
+		maxAttempts = chatCompletionMinAttempts
+	}
 	var lastErr error
-	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if err := c.limiter.Wait(ctx); err != nil {
 			return "", err
 		}
@@ -157,7 +166,14 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req ChatReque
 			time.Sleep(backoff(attempt))
 			continue
 		}
-		return strings.TrimSpace(out.Choices[0].Message.Content), nil
+		content := strings.TrimSpace(out.Choices[0].Message.Content)
+		if content == "" {
+			lastErr = errors.New("empty message content")
+			logger.L.Warn("ai empty message content", "attempt", attempt, "status", status)
+			time.Sleep(backoff(attempt))
+			continue
+		}
+		return content, nil
 	}
 	if lastErr == nil {
 		lastErr = errors.New("exhausted retries")

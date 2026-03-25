@@ -102,6 +102,7 @@ func RunOnce(ctx context.Context, d Deps) error {
 	if err != nil {
 		return fmt.Errorf("generate article: %w", err)
 	}
+	summarizer.EnrichArticleMeta(&article, topPapers)
 
 	for i := range article.Sections {
 		sec := &article.Sections[i]
