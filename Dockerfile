@@ -1,7 +1,14 @@
-FROM golang:1.24-alpine AS builder
+# 构建说明：
+# 1) go.mod 为 go 1.25.x 时，请使用 **golang:1.25-*** 镜像，并设 GOTOOLCHAIN=local，
+#    避免在 1.24 镜像里自动下载 go1.25 toolchain（走 proxy.golang.org，国内易超时）。
+# 2) GOPROXY 默认 goproxy.cn，加速拉模块；海外可：docker build --build-arg GOPROXY=https://proxy.golang.org,direct .
+# 3) apk 很慢时可在构建机换 Alpine 源或使用网络更好的环境。
+
+FROM golang:1.25-alpine AS builder
 WORKDIR /src
-# go.mod 可能要求更高版本 toolchain 时自动拉取
-ENV GOTOOLCHAIN=auto
+ENV GOTOOLCHAIN=local
+ARG GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=${GOPROXY}
 RUN apk add --no-cache git ca-certificates tzdata
 COPY go.mod go.sum ./
 RUN go mod download
@@ -13,7 +20,6 @@ RUN apk add --no-cache ca-certificates tzdata wget
 ENV TZ=Asia/Shanghai
 WORKDIR /app
 COPY --from=builder /out/onepaper /app/onepaper
-# 默认配置路径；运行时可通过挂载覆盖 /app/config.yaml
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1

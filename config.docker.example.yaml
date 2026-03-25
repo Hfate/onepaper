@@ -44,7 +44,7 @@ image:
 wechat:
   app_id: "${WECHAT_APP_ID}"
   app_secret: "${WECHAT_APP_SECRET}"
-  author: "你的笔名"
+  author: "手撕西瓜"
   publish_mode: "draft"
   token: "${WECHAT_TOKEN}"
   encoding_aes_key: "${WECHAT_ENCODING_AES_KEY}"
