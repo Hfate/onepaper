@@ -23,6 +23,8 @@ services:
       OPENROUTER_X_TITLE: ${OPENROUTER_X_TITLE:-}
       WECHAT_APP_ID: ${WECHAT_APP_ID:-}
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      WECHAT_TOKEN: ${WECHAT_TOKEN:-}
+      WECHAT_ENCODING_AES_KEY: ${WECHAT_ENCODING_AES_KEY:-}
       # 与 config.yaml 里 database.dsn 中 ${VAR} 对应（常用 root + DB_ROOT_PASSWORD）
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-}
       DB_USER: ${DB_USER:-}

@@ -49,6 +49,8 @@ services:
       OPENROUTER_X_TITLE: ${OPENROUTER_X_TITLE:-}
       WECHAT_APP_ID: ${WECHAT_APP_ID:-}
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      WECHAT_TOKEN: ${WECHAT_TOKEN:-}
+      WECHAT_ENCODING_AES_KEY: ${WECHAT_ENCODING_AES_KEY:-}
       DB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-onepaper}
     volumes:
       - ./config.yaml:/app/config.yaml:ro

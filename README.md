@@ -155,6 +155,7 @@ docker compose up -d
 ### 微信说明
 
 - 需已认证公众号，且接口权限包含素材与草稿/发布。
+- **消息推送（服务器配置）**：在公众平台填写 **URL**（公网可访问，需与 `push_path` 一致，例如 `https://你的域名/api/v1/wechat/serve`）、**Token**、**EncodingAESKey**，对应 `wechat.token`、`wechat.encoding_aes_key`（及 `.env` 中 `WECHAT_TOKEN` 等）。本服务默认监听 **`push_path`**（`/api/v1/wechat/serve`）处理 GET 校验与 POST 消息/事件；**反代**须转发到进程 `server.addr`（默认容器内 `:8080`）。**加密模式**须同时配置正确的 `app_id` 与 `encoding_aes_key`。
 - `wechat.publish_mode`:
   - `draft`：只写入草稿箱（推荐先人工检查）。
   - `publish`：创建草稿后调用发布接口（异步，可用官方接口轮询状态）。

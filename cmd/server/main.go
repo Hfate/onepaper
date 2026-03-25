@@ -64,10 +64,12 @@ func main() {
 	img.HTTP = &http.Client{Timeout: cfg.ImageDownloadTimeout()}
 
 	pub := publisher.New(publisher.Config{
-		AppID:       cfg.WeChat.AppID,
-		AppSecret:   cfg.WeChat.AppSecret,
-		Author:      cfg.WeChat.Author,
-		PublishMode: cfg.WeChat.PublishMode,
+		AppID:          cfg.WeChat.AppID,
+		AppSecret:      cfg.WeChat.AppSecret,
+		Author:         cfg.WeChat.Author,
+		PublishMode:    cfg.WeChat.PublishMode,
+		Token:          cfg.WeChat.Token,
+		EncodingAESKey: cfg.WeChat.EncodingAESKey,
 	})
 
 	deps := scheduler.Deps{
@@ -109,6 +111,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	pub.RegisterPushHandler(mux, cfg.WeChat.PushPath)
 	srv := &http.Server{Addr: cfg.Server.Addr, Handler: mux}
 
 	go func() {

@@ -46,6 +46,9 @@ wechat:
   app_secret: "${WECHAT_APP_SECRET}"
   author: "你的笔名"
   publish_mode: "draft"
+  token: "${WECHAT_TOKEN}"
+  encoding_aes_key: "${WECHAT_ENCODING_AES_KEY}"
+  push_path: "/api/v1/wechat/serve"
 
 scheduler:
   enabled: true

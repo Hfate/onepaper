@@ -17,10 +17,12 @@ import (
 
 // Config 公众号发布配置。
 type Config struct {
-	AppID       string
-	AppSecret   string
-	Author      string
-	PublishMode string // draft | publish | none
+	AppID          string
+	AppSecret      string
+	Author         string
+	PublishMode    string // draft | publish | none
+	Token          string
+	EncodingAESKey string
 }
 
 // WeChatPublisher 图文素材与发布。
@@ -39,9 +41,11 @@ func New(cfg Config) *WeChatPublisher {
 
 func (p *WeChatPublisher) oa() *officialaccount.OfficialAccount {
 	cfg := &offcfg.Config{
-		AppID:     p.cfg.AppID,
-		AppSecret: p.cfg.AppSecret,
-		Cache:     cache.NewMemory(),
+		AppID:          p.cfg.AppID,
+		AppSecret:      p.cfg.AppSecret,
+		Token:          p.cfg.Token,
+		EncodingAESKey: p.cfg.EncodingAESKey,
+		Cache:          nil, // 使用 wc.SetCache 注入的共享 cache
 	}
 	return p.wc.GetOfficialAccount(cfg)
 }

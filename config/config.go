@@ -50,10 +50,13 @@ type Config struct {
 	} `yaml:"image"`
 
 	WeChat struct {
-		AppID       string `yaml:"app_id"`
-		AppSecret   string `yaml:"app_secret"`
-		Author      string `yaml:"author"`
-		PublishMode string `yaml:"publish_mode"` // draft | publish
+		AppID          string `yaml:"app_id"`
+		AppSecret      string `yaml:"app_secret"`
+		Author         string `yaml:"author"`
+		PublishMode    string `yaml:"publish_mode"`     // draft | publish | none
+		Token          string `yaml:"token"`            // 公众平台「服务器配置」Token
+		EncodingAESKey string `yaml:"encoding_aes_key"` // 明文/兼容/安全模式下的 EncodingAESKey
+		PushPath       string `yaml:"push_path"`        // 本服务回调路径，如 /api/v1/wechat/serve
 	} `yaml:"wechat"`
 
 	Scheduler struct {
@@ -164,6 +167,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Scheduler.Timezone == "" {
 		cfg.Scheduler.Timezone = "Asia/Shanghai"
+	}
+	if cfg.WeChat.PushPath == "" {
+		cfg.WeChat.PushPath = "/api/v1/wechat/serve"
 	}
 }
 

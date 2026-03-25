@@ -45,6 +45,11 @@ wechat:
   author: "你的笔名"
   # draft: 仅草稿箱 | publish: 草稿后发布 | none: 跳过微信（仍会生成 HTML）
   publish_mode: "draft"
+  # 公众平台「开发 - 基本配置 - 服务器配置」：与 URL 回调一致；安全/加密模式需同时配 encoding_aes_key、app_id
+  token: "${WECHAT_TOKEN}"
+  encoding_aes_key: "${WECHAT_ENCODING_AES_KEY}"
+  # 本服务监听路径，对外完整 URL 需由反代指向 http://容器:8080 该路径（默认如下）
+  push_path: "/api/v1/wechat/serve"
 
 scheduler:
   enabled: true
