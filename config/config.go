@@ -43,10 +43,12 @@ type Config struct {
 	} `yaml:"summarizer"`
 
 	Image struct {
-		Dir             string `yaml:"dir"`
-		MinWidth        int    `yaml:"min_width"`
-		MinHeight       int    `yaml:"min_height"`
-		DownloadTimeout string `yaml:"download_timeout"`
+		Dir                string `yaml:"dir"`
+		MinWidth           int    `yaml:"min_width"`
+		MinHeight          int    `yaml:"min_height"`
+		DownloadTimeout    string `yaml:"download_timeout"`     // HTML/小图
+		PdfDownloadTimeout string `yaml:"pdf_download_timeout"` // 整本 PDF 下载
+		PdfFallback        bool   `yaml:"pdf_fallback"`         // true 时 HTML 无图再下 PDF；默认 false 快速失败
 	} `yaml:"image"`
 
 	WeChat struct {
@@ -57,6 +59,7 @@ type Config struct {
 		Token          string `yaml:"token"`            // 公众平台「服务器配置」Token
 		EncodingAESKey string `yaml:"encoding_aes_key"` // 明文/兼容/安全模式下的 EncodingAESKey
 		PushPath       string `yaml:"push_path"`        // 本服务回调路径，如 /api/v1/wechat/serve
+		DefaultThumb   string `yaml:"default_thumb"`    // 无章节配图时用作封面；默认 default.png
 	} `yaml:"wechat"`
 
 	Scheduler struct {
@@ -157,7 +160,10 @@ func applyDefaults(cfg *Config) {
 		cfg.Image.MinHeight = 500
 	}
 	if cfg.Image.DownloadTimeout == "" {
-		cfg.Image.DownloadTimeout = "60s"
+		cfg.Image.DownloadTimeout = "90s"
+	}
+	if cfg.Image.PdfDownloadTimeout == "" {
+		cfg.Image.PdfDownloadTimeout = "60s"
 	}
 	if cfg.WeChat.PublishMode == "" {
 		cfg.WeChat.PublishMode = "draft"
@@ -170,6 +176,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.WeChat.PushPath == "" {
 		cfg.WeChat.PushPath = "/api/v1/wechat/serve"
+	}
+	if cfg.WeChat.DefaultThumb == "" {
+		cfg.WeChat.DefaultThumb = "default.png"
 	}
 }
 
@@ -188,9 +197,18 @@ func validate(cfg *Config) error {
 	return nil
 }
 
-// ImageDownloadTimeout 解析图片下载超时。
+// ImageDownloadTimeout 解析 HTML/配图小图下载超时。
 func (c *Config) ImageDownloadTimeout() time.Duration {
 	d, err := time.ParseDuration(c.Image.DownloadTimeout)
+	if err != nil {
+		return 90 * time.Second
+	}
+	return d
+}
+
+// ImagePDFDownloadTimeout 解析 arXiv PDF 整本下载超时（体积大、易超时）。
+func (c *Config) ImagePDFDownloadTimeout() time.Duration {
+	d, err := time.ParseDuration(c.Image.PdfDownloadTimeout)
 	if err != nil {
 		return 60 * time.Second
 	}

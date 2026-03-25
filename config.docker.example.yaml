@@ -40,6 +40,8 @@ image:
   min_width: 500
   min_height: 500
   download_timeout: "90s"
+  pdf_fallback: false
+  pdf_download_timeout: "60s"
 
 wechat:
   app_id: "${WECHAT_APP_ID}"
@@ -49,6 +51,8 @@ wechat:
   token: "${WECHAT_TOKEN}"
   encoding_aes_key: "${WECHAT_ENCODING_AES_KEY}"
   push_path: "/api/v1/wechat/serve"
+  # 镜像内已带 /app/default.png；可省略或显式写 /app/default.png
+  default_thumb: "/app/default.png"
 
 scheduler:
   enabled: true

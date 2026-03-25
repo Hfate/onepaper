@@ -57,11 +57,13 @@ func main() {
 		MaxWords: cfg.Summarizer.MaxWords,
 	}
 	img := &image.Extractor{
-		Dir:  cfg.Image.Dir,
-		MinW: cfg.Image.MinWidth,
-		MinH: cfg.Image.MinHeight,
+		Dir:         cfg.Image.Dir,
+		MinW:        cfg.Image.MinWidth,
+		MinH:        cfg.Image.MinHeight,
+		PdfFallback: cfg.Image.PdfFallback,
 	}
 	img.HTTP = &http.Client{Timeout: cfg.ImageDownloadTimeout()}
+	img.PDFHTTP = &http.Client{Timeout: cfg.ImagePDFDownloadTimeout()}
 
 	pub := publisher.New(publisher.Config{
 		AppID:          cfg.WeChat.AppID,
@@ -70,6 +72,7 @@ func main() {
 		PublishMode:    cfg.WeChat.PublishMode,
 		Token:          cfg.WeChat.Token,
 		EncodingAESKey: cfg.WeChat.EncodingAESKey,
+		DefaultThumb:   cfg.WeChat.DefaultThumb,
 	})
 
 	deps := scheduler.Deps{
@@ -93,6 +96,7 @@ func main() {
 			logger.L.Error("pipeline", "err", err)
 			os.Exit(1)
 		}
+		logger.L.Info("pipeline finished (-run-once), exiting")
 		return
 	}
 

@@ -25,19 +25,32 @@ import (
 
 // Extractor 论文配图提取（arXiv HTML 优先，PDF 回退）。
 type Extractor struct {
-	HTTP *http.Client
-	Dir  string
-	MinW int
-	MinH int
+	HTTP        *http.Client // HTML 页、小图
+	PDFHTTP     *http.Client // 整本 PDF，单独更长超时
+	PdfFallback bool         // false：仅 HTML 配图，失败即返回；true：再尝试整本 PDF
+	Dir         string
+	MinW        int
+	MinH        int
 }
 
 var imgSrcRe = regexp.MustCompile(`(?i)<img[^>]+src=["']([^"']+)["']`)
 
 // ExtractMainImage 返回本地保存路径；失败返回错误。
-func (e *Extractor) ExtractMainImage(ctx context.Context, p model.Paper) (string, error) {
-	if e.HTTP == nil {
-		e.HTTP = &http.Client{Timeout: 90 * time.Second}
+func (e *Extractor) httpClient() *http.Client {
+	if e.HTTP != nil {
+		return e.HTTP
 	}
+	return &http.Client{Timeout: 90 * time.Second}
+}
+
+func (e *Extractor) pdfClient() *http.Client {
+	if e.PDFHTTP != nil {
+		return e.PDFHTTP
+	}
+	return e.httpClient()
+}
+
+func (e *Extractor) ExtractMainImage(ctx context.Context, p model.Paper) (string, error) {
 	if e.MinW <= 0 {
 		e.MinW = 500
 	}
@@ -50,6 +63,7 @@ func (e *Extractor) ExtractMainImage(ctx context.Context, p model.Paper) (string
 
 	// 1) arXiv 摘要页 / HTML 实验页
 	if strings.Contains(strings.ToLower(p.URL), "arxiv.org") {
+		logger.L.Info("image: try arxiv html", "id", p.ID)
 		if path, err := e.fromArxivHTML(ctx, p); err == nil && path != "" {
 			return path, nil
 		} else if err != nil {
@@ -57,7 +71,12 @@ func (e *Extractor) ExtractMainImage(ctx context.Context, p model.Paper) (string
 		}
 	}
 
-	// 2) PDF 第一页大图
+	if !e.PdfFallback {
+		return "", fmt.Errorf("pdf fallback disabled")
+	}
+
+	// 2) PDF 第一页大图（整本下载，可能较慢）
+	logger.L.Info("image: try pdf extract page 1", "id", p.ID, "pdf", p.PDFURL)
 	path, err := e.fromPDF(ctx, p)
 	if err != nil {
 		return "", err
@@ -77,7 +96,7 @@ func (e *Extractor) fromArxivHTML(ctx context.Context, p model.Paper) (string, e
 			continue
 		}
 		req.Header.Set("User-Agent", "onepaper-bot/1.0")
-		resp, err := e.HTTP.Do(req)
+		resp, err := e.httpClient().Do(req)
 		if err != nil {
 			continue
 		}
@@ -134,7 +153,7 @@ func (e *Extractor) downloadIfLargeEnough(ctx context.Context, imgURL, filePrefi
 		return "", err
 	}
 	req.Header.Set("User-Agent", "onepaper-bot/1.0")
-	resp, err := e.HTTP.Do(req)
+	resp, err := e.httpClient().Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -173,7 +192,7 @@ func (e *Extractor) fromPDF(ctx context.Context, p model.Paper) (string, error) 
 		return "", err
 	}
 	req.Header.Set("User-Agent", "onepaper-bot/1.0")
-	resp, err := e.HTTP.Do(req)
+	resp, err := e.pdfClient().Do(req)
 	if err != nil {
 		return "", fmt.Errorf("pdf download: %w", err)
 	}

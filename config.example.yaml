@@ -38,6 +38,10 @@ image:
   min_width: 500
   min_height: 500
   download_timeout: "90s"
+  # 默认 false：HTML 无合适图则不再下载整本 PDF，避免长时间卡住；需要配图时再设 true
+  pdf_fallback: false
+  # 仅当 pdf_fallback: true 时生效；整本 PDF 较慢时可加大
+  pdf_download_timeout: "60s"
 
 wechat:
   app_id: "${WECHAT_APP_ID}"
@@ -50,6 +54,8 @@ wechat:
   encoding_aes_key: "${WECHAT_ENCODING_AES_KEY}"
   # 本服务监听路径，对外完整 URL 需由反代指向 http://容器:8080 该路径（默认如下）
   push_path: "/api/v1/wechat/serve"
+  # 各节均无配图时用作草稿封面；默认 default.png（与可执行文件同工作目录）
+  # default_thumb: "default.png"
 
 scheduler:
   enabled: true

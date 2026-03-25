@@ -3,6 +3,7 @@ package publisher
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/Hfate/onepaper/internal/model"
@@ -23,6 +24,8 @@ type Config struct {
 	PublishMode    string // draft | publish | none
 	Token          string
 	EncodingAESKey string
+	// DefaultThumb 无章节配图时上传为封面缩略图；须为本地可读文件（如项目根目录 default.png）。
+	DefaultThumb string
 }
 
 // WeChatPublisher 图文素材与发布。
@@ -90,7 +93,19 @@ func (p *WeChatPublisher) Publish(ctx context.Context, article *model.Article, r
 		}
 	}
 	if thumbID == "" {
-		return fmt.Errorf("no thumbnail: add at least one section image")
+		path := strings.TrimSpace(p.cfg.DefaultThumb)
+		if path == "" {
+			return fmt.Errorf("no thumbnail: add at least one section image or set wechat.default_thumb")
+		}
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("wechat default_thumb %q: %w", path, err)
+		}
+		id, _, err := mat.AddMaterial(material.MediaTypeThumb, path)
+		if err != nil {
+			return fmt.Errorf("default thumb material: %w", err)
+		}
+		thumbID = id
+		logger.L.Info("wechat default thumb used", "path", path)
 	}
 
 	digest := truncateRunes(stripHTML(article.Intro), 120)
