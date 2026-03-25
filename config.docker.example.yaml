@@ -14,9 +14,11 @@ database:
   # dsn: "${DB_USER}:${DB_PASSWORD}@tcp(slowwindow-mysql:3306)/onepaper?parseTime=true&loc=Local"
   dsn: "root:${DB_ROOT_PASSWORD}@tcp(slowwindow-mysql:3306)/onepaper?parseTime=true&loc=Local"
 
+# LLM：OpenAI / OpenRouter / DeepSeek 等（OpenAI 兼容）。密钥可用 ${AI_API_KEY} 或与 .env 中 OPENROUTER_API_KEY、DEEPSEEK_API_KEY 等对应。
+# base_url 未写时可依赖容器环境 AI_BASE_URL。
 ai:
   base_url: "https://api.openai.com/v1"
-  api_key: "${OPENAI_API_KEY}"
+  api_key: "${AI_API_KEY}"
   model: "gpt-4o-mini"
   score_model: "gpt-4o-mini"
   article_model: "gpt-4o-mini"

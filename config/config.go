@@ -81,14 +81,36 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
 		return nil, fmt.Errorf("yaml: %w", err)
 	}
-	if strings.TrimSpace(cfg.AI.APIKey) == "" {
-		cfg.AI.APIKey = os.Getenv("OPENAI_API_KEY")
+	cfg.AI.BaseURL = strings.TrimSpace(cfg.AI.BaseURL)
+	if cfg.AI.BaseURL == "" {
+		cfg.AI.BaseURL = strings.TrimSpace(os.Getenv("AI_BASE_URL"))
+	}
+	cfg.AI.APIKey = strings.TrimSpace(cfg.AI.APIKey)
+	if cfg.AI.APIKey == "" {
+		cfg.AI.APIKey = resolveAIAPIKeyFromEnv()
 	}
 	applyDefaults(&cfg)
 	if err := validate(&cfg); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// resolveAIAPIKeyFromEnv 在 yaml 未提供 api_key 时，按优先级读取环境变量（OpenAI 兼容网关通用）。
+func resolveAIAPIKeyFromEnv() string {
+	keys := []string{
+		"AI_API_KEY",
+		"LLM_API_KEY",
+		"OPENROUTER_API_KEY",
+		"DEEPSEEK_API_KEY",
+		"OPENAI_API_KEY",
+	}
+	for _, k := range keys {
+		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func applyDefaults(cfg *Config) {
@@ -151,7 +173,7 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("ai.base_url is required")
 	}
 	if strings.TrimSpace(cfg.AI.APIKey) == "" {
-		return fmt.Errorf("ai.api_key is required (or set OPENAI_API_KEY)")
+		return fmt.Errorf("ai.api_key is required (yaml/AI_API_KEY/OPENROUTER_API_KEY/DEEPSEEK_API_KEY/OPENAI_API_KEY 等)")
 	}
 	mode := strings.ToLower(cfg.WeChat.PublishMode)
 	if mode != "draft" && mode != "publish" && mode != "none" {

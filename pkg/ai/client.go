@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -86,6 +87,13 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req ChatReque
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+		// OpenRouter 可选统计（文档称 HTTP-Referer，标准头为 Referer）
+		if ref := strings.TrimSpace(os.Getenv("OPENROUTER_HTTP_REFERER")); ref != "" {
+			httpReq.Header.Set("Referer", ref)
+		}
+		if title := strings.TrimSpace(os.Getenv("OPENROUTER_X_TITLE")); title != "" {
+			httpReq.Header.Set("X-Title", title)
+		}
 
 		resp, err := c.httpClient.Do(httpReq)
 		if err != nil {

@@ -45,8 +45,8 @@ mysql -u root -p < migrations/001_schema.sql
 
 ```bash
 cp config.example.yaml config.yaml
-# 编辑 database.dsn、ai.base_url、wechat 等
-export OPENAI_API_KEY=sk-...
+# 编辑 database.dsn、ai（base_url / 模型 / api_key 或环境变量 AI_API_KEY 等）、wechat
+export AI_API_KEY=sk-...   # 或 OPENROUTER_API_KEY / DEEPSEEK_API_KEY / OPENAI_API_KEY
 ```
 
 ### 3. 运行
@@ -63,6 +63,18 @@ go run ./cmd/server -config config.yaml -run-once
 ```
 
 - HTTP：`GET /healthz` 健康检查。
+
+### LLM 供应商（OpenAI / OpenRouter / DeepSeek）
+
+使用同一套 **Chat Completions** 客户端：`config.yaml` 里配置 `ai.base_url`（必须以 `/v1` 结尾，例如 `https://api.deepseek.com/v1`、`https://openrouter.ai/api/v1`）、`ai.model` / `score_model` / `article_model`，以及 `ai.api_key` 或占位符。
+
+**API Key** 可来自环境变量（在 yaml 里写 `${AI_API_KEY}`，或 yaml 留空由程序按序读取）：**`AI_API_KEY`** → `LLM_API_KEY` → **`OPENROUTER_API_KEY`** → **`DEEPSEEK_API_KEY`** → `OPENAI_API_KEY`。若 yaml 未写 **`base_url`**，可读 **`AI_BASE_URL`**。
+
+**OpenRouter**：可在 `.env` 设置 `AI_BASE_URL=https://openrouter.ai/api/v1`，`OPENROUTER_API_KEY=...`，模型如 `openai/gpt-4o-mini`；可选用 `OPENROUTER_HTTP_REFERER`、`OPENROUTER_X_TITLE`（见 OpenRouter 文档）。
+
+**DeepSeek**：`base_url` 一般为 `https://api.deepseek.com/v1`，`DEEPSEEK_API_KEY`，模型如 `deepseek-chat`。
+
+JSON 输出依赖供应商对 `response_format` 的支持；若某模型不支持，需在 `filter`/`summarizer` 中改提示或关闭强制 JSON（后续可按需扩展）。
 
 ---
 
@@ -93,7 +105,7 @@ go run ./cmd/server -config config.yaml -run-once
    `cp config.docker.example.yaml config.yaml`，确认 dsn 里主机为 **`slowwindow-mysql`**（与对方 `container_name` 一致；若对方改成别名/服务名，则同步改这里）。
 
 4. **环境变量**  
-   `cp .env.example .env`：填写 **`OPENAI_API_KEY`**、**`EXTERNAL_MYSQL_NETWORK`**、**`DB_ROOT_PASSWORD`**（与 slowwindow 一致）。
+   `cp .env.example .env`：填写 **LLM**（如 **`AI_API_KEY`**，或 `OPENROUTER_API_KEY` / `DEEPSEEK_API_KEY`）、**`EXTERNAL_MYSQL_NETWORK`**、**`DB_ROOT_PASSWORD`**（与 slowwindow 一致）；OpenRouter 可设 **`OPENROUTER_HTTP_REFERER`**。
 
 5. **启动**
 

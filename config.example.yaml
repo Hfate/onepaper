@@ -8,9 +8,14 @@ database:
   # 可为空：不落库，仅跑流水线（适合联调）
   dsn: "root:password@tcp(127.0.0.1:3306)/onepaper?parseTime=true&loc=Local"
 
+# LLM：任意 OpenAI 兼容 API（OpenAI / OpenRouter / DeepSeek 等）。base_url 需指向 .../v1。
+# Key 可写死或用 ${AI_API_KEY}；未设置时程序会依次读环境变量 AI_API_KEY、OPENROUTER_API_KEY、DEEPSEEK_API_KEY、OPENAI_API_KEY。
+# 也可用 AI_BASE_URL 环境变量补全 base_url（yaml 留空时）。
+# OpenRouter 示例：base_url: "https://openrouter.ai/api/v1"，model: "openai/gpt-4o-mini"
+# DeepSeek 示例：base_url: "https://api.deepseek.com/v1"，model: "deepseek-chat"
 ai:
   base_url: "https://api.openai.com/v1"
-  api_key: "${OPENAI_API_KEY}"
+  api_key: "${AI_API_KEY}"
   model: "gpt-4o-mini"
   score_model: "gpt-4o-mini"
   article_model: "gpt-4o-mini"
