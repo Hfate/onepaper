@@ -1,0 +1,13 @@
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.example
+data/
+tmp/
+*.log
+.DS_Store
+.idea
+.vscode
+**/._*

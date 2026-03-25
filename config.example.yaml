@@ -1,0 +1,52 @@
+# 复制为 config.yaml 后修改。支持 ${ENV_VAR} 占位符。
+
+server:
+  addr: ":8080"
+
+database:
+  # 可为空：不落库，仅跑流水线（适合联调）
+  dsn: "root:password@tcp(127.0.0.1:3306)/onepaper?parseTime=true&loc=Local"
+
+ai:
+  base_url: "https://api.openai.com/v1"
+  api_key: "${OPENAI_API_KEY}"
+  model: "gpt-4o-mini"
+  score_model: "gpt-4o-mini"
+  article_model: "gpt-4o-mini"
+  max_retries: 3
+
+crawler:
+  arxiv_max_results: 20
+  lookback_hours: 24
+
+filter:
+  top_n: 5
+
+summarizer:
+  min_words: 1500
+  max_words: 2500
+
+image:
+  # 本机：./data/images；Docker：见 config.docker.example.yaml（一般为 /app/data/images）
+  dir: "./data/images"
+  min_width: 500
+  min_height: 500
+  download_timeout: "90s"
+
+wechat:
+  app_id: "${WECHAT_APP_ID}"
+  app_secret: "${WECHAT_APP_SECRET}"
+  author: "你的笔名"
+  # draft: 仅草稿箱 | publish: 草稿后发布 | none: 跳过微信（仍会生成 HTML）
+  publish_mode: "draft"
+
+scheduler:
+  enabled: true
+  cron: "0 9 * * *"
+  timezone: "Asia/Shanghai"
+
+oss:
+  enabled: false
+  endpoint: ""
+  bucket: ""
+  public_url: ""
