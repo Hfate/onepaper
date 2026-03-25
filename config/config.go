@@ -26,7 +26,9 @@ type Config struct {
 		ScoreModel     string `yaml:"score_model"`
 		ArticleModel   string `yaml:"article_model"`
 		MaxRetries     int    `yaml:"max_retries"`
-		RequestTimeout string `yaml:"request_timeout"` // 单次 /chat/completions 超时（长文生成可 180s–300s）
+		RequestTimeout string `yaml:"request_timeout"` // 打分等短请求
+		// 长文生成（JSON + 多节）往往比打分慢；单独设长超时，避免读 body 时触发 Client.Timeout。
+		ArticleRequestTimeout string `yaml:"article_request_timeout"`
 	} `yaml:"ai"`
 
 	Crawler struct {
@@ -145,8 +147,10 @@ func applyDefaults(cfg *Config) {
 		cfg.AI.MaxRetries = 0
 	}
 	if cfg.AI.RequestTimeout == "" {
-		// 长文生成（article）输出较慢时，45s 偏紧；提升默认值以避免 read body 超时。
 		cfg.AI.RequestTimeout = "180s"
+	}
+	if cfg.AI.ArticleRequestTimeout == "" {
+		cfg.AI.ArticleRequestTimeout = "600s"
 	}
 	if cfg.Crawler.ArxivMaxResults <= 0 {
 		cfg.Crawler.ArxivMaxResults = 20
@@ -264,6 +268,15 @@ func (c *Config) AIRequestTimeout() time.Duration {
 	d, err := time.ParseDuration(c.AI.RequestTimeout)
 	if err != nil {
 		return 45 * time.Second
+	}
+	return d
+}
+
+// AIArticleRequestTimeout 解析长文生成专用超时（应 ≥ request_timeout）。
+func (c *Config) AIArticleRequestTimeout() time.Duration {
+	d, err := time.ParseDuration(c.AI.ArticleRequestTimeout)
+	if err != nil {
+		return 600 * time.Second
 	}
 	return d
 }

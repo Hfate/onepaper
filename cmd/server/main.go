@@ -46,6 +46,7 @@ func main() {
 	}
 
 	aiClient := ai.New(cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.MaxRetries, cfg.AIRequestTimeout())
+	articleAI := ai.New(cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.MaxRetries, cfg.AIArticleRequestTimeout())
 
 	var sources []crawler.Source
 	for _, name := range cfg.Crawler.Sources {
@@ -105,7 +106,7 @@ func main() {
 	}
 	scorer := &filter.Scorer{Client: aiClient, Model: cfg.AI.ScoreModel}
 	gen := &summarizer.Generator{
-		Client:   aiClient,
+		Client:   articleAI,
 		Model:    cfg.AI.ArticleModel,
 		MinWords: cfg.Summarizer.MinWords,
 		MaxWords: cfg.Summarizer.MaxWords,

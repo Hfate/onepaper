@@ -24,6 +24,7 @@ ai:
   article_model: "gpt-4o-mini"
   max_retries: 0
   request_timeout: "180s"
+  article_request_timeout: "600s"
 
 crawler:
   # 论文抓取来源；默认仅 arxiv，保证可用性。

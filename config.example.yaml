@@ -21,8 +21,10 @@ ai:
   article_model: "gpt-4o-mini"
   # 失败后额外重试次数；0 表示各请求只试一次（快速失败）。稳态可调 2–3
   max_retries: 0
-  # 单次 /chat/completions 超时；长文易超时可设 120s–300s
+  # 打分等短请求
   request_timeout: "180s"
+  # 长文生成（整篇 JSON）；默认 600s，慢模型或网关可设 900s–1200s
+  article_request_timeout: "600s"
 
 crawler:
   # 论文抓取来源；默认仅 arxiv，保证可用性。
