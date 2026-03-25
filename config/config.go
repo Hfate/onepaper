@@ -137,7 +137,8 @@ func applyDefaults(cfg *Config) {
 		cfg.AI.MaxRetries = 0
 	}
 	if cfg.AI.RequestTimeout == "" {
-		cfg.AI.RequestTimeout = "45s"
+		// 长文生成（article）输出较慢时，45s 偏紧；提升默认值以避免 read body 超时。
+		cfg.AI.RequestTimeout = "180s"
 	}
 	if cfg.Crawler.ArxivMaxResults <= 0 {
 		cfg.Crawler.ArxivMaxResults = 20
