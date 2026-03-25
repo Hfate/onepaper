@@ -1,4 +1,5 @@
 # 复制为 config.yaml 后修改。支持 ${ENV_VAR} 占位符。
+# Docker Compose 部署请优先使用 config.docker.example.yaml（dsn 主机为 mysql，配图目录为容器路径）。
 
 server:
   addr: ":8080"

@@ -1,3 +1,7 @@
+# 默认：复用已在运行中的 MySQL（例如 slowwindow 项目的 slowwindow-mysql）。
+# 条件：本项目的 onepaper 容器加入对方栈使用的 Docker 网络；并在该实例上建库 onepaper。
+# 详见 README「复用其它项目的 MySQL」。
+
 services:
   onepaper:
     build: .
@@ -5,21 +9,32 @@ services:
     container_name: onepaper
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "${APP_PORT:-9090}:8080"
     environment:
       TZ: Asia/Shanghai
-      # 项目根目录 .env 供 Compose 做变量替换并传入容器（供 config 中 ${VAR} 使用）
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       WECHAT_APP_ID: ${WECHAT_APP_ID:-}
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      # 与 config.yaml 里 database.dsn 中 ${VAR} 对应（常用 root + DB_ROOT_PASSWORD）
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-}
+      DB_USER: ${DB_USER:-}
+      DB_PASSWORD: ${DB_PASSWORD:-}
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - onepaper-data:/app/data
+    networks:
+      - mysql_external
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  mysql_external:
+    external: true
+    # docker network ls 查看对方栈网络，多为「目录名_slowwindow-network」
+    name: ${EXTERNAL_MYSQL_NETWORK:-slowwindow_slowwindow-network}
 
 volumes:
   onepaper-data:

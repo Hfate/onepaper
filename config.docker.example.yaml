@@ -1,11 +1,18 @@
-# 与 docker-compose.mysql.yml 联用时，复制为 config.yaml 并调整密码。
-# database 主机名必须是 compose 服务名 `mysql`。
+# Docker：复用已有 MySQL（与 slowwindow 同 Docker 网络）时复制为 config.yaml。
+#
+# database 主机：对方 compose 里 MySQL 的 container_name（示例为 slowwindow-mysql）；
+# 也可用服务名 mysql，前提是两个容器在同一 bridge 网络上且 DNS 能解析到该别名。
+#
+# 密码：与 slowwindow .env 一致；dsn 中支持 ${DB_ROOT_PASSWORD} / ${DB_USER} / ${DB_PASSWORD}，
+# 由 docker-compose.yml 从宿主机 .env 注入容器环境后再做展开。
 
 server:
   addr: ":8080"
 
 database:
-  dsn: "root:onepaper@tcp(mysql:3306)/onepaper?parseTime=true&loc=Local"
+  # 推荐业务账号（先在 MySQL 里对 onepaper 库授权后再用）：
+  # dsn: "${DB_USER}:${DB_PASSWORD}@tcp(slowwindow-mysql:3306)/onepaper?parseTime=true&loc=Local"
+  dsn: "root:${DB_ROOT_PASSWORD}@tcp(slowwindow-mysql:3306)/onepaper?parseTime=true&loc=Local"
 
 ai:
   base_url: "https://api.openai.com/v1"

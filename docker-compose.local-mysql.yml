@@ -1,0 +1,56 @@
+# 可选：独立 MySQL + onepaper（数据目录默认 ./data/mysql）
+#   docker compose -f docker-compose.local-mysql.yml up -d
+# config 请用主机名 mysql，可参考将 config.docker.example.yaml 中 dsn 改为 tcp(mysql:3306) 且密码与 MYSQL_ROOT_PASSWORD 一致
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: onepaper-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-onepaper}
+      MYSQL_DATABASE: onepaper
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - ${MYSQL_DATA_DIR:-./data/mysql}:/var/lib/mysql
+      - ./migrations/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  onepaper:
+    build: .
+    image: hfate/onepaper:latest
+    container_name: onepaper
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-9090}:8080"
+    environment:
+      TZ: Asia/Shanghai
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      DB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-onepaper}
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - onepaper-data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  onepaper-data:

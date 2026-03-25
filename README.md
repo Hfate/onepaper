@@ -30,7 +30,7 @@ pkg/logger/
 migrations/
 Dockerfile
 docker-compose.yml
-docker-compose.mysql.yml
+docker-compose.local-mysql.yml
 ```
 
 ## 快速开始（本机 Go）
@@ -68,45 +68,56 @@ go run ./cmd/server -config config.yaml -run-once
 
 ## Docker 部署
 
-### 准备
+默认 **`docker compose`**（`docker-compose.yml`）**只启动 onepaper**，并把它接到**已有的** MySQL 所在 Docker 网络（典型场景：与 **slowwindow** 同机的 `slowwindow-mysql` 复用，新建库 **`onepaper`**）。对方 MySQL **未映射宿主机端口**也没问题，容器间走内网即可。
 
-1. 在项目根目录准备 `config.yaml`（可从 `config.example.yaml` 复制并修改）。
-2. **推荐**准备 `.env`：复制 `.env.example` 为 `.env`，填写 `OPENAI_API_KEY` 等。Compose 会自动读取项目根目录的 `.env` 用于变量替换，并通过 `docker-compose.yml` 中的 `environment` 传入容器（供 `config.yaml` 里 `${OPENAI_API_KEY}` 等占位符使用）。
-3. 容器内配图目录为卷 `onepaper-data`，挂载在 `/app/data`；若使用 Docker，请在 `config.yaml` 里将 `image.dir` 设为 **`/app/data/images`**（可参考 `config.docker.example.yaml`）。
+### 复用其它项目的 MySQL（推荐）
 
-### 仅应用（自带 MySQL 或不用库）
+1. **查网络名**（对方 `docker-compose.yml` 里 `networks` 下的 key 为 `slowwindow-network` 时，实际名字多为 **`目录名_slowwindow-network`**）：
+
+   ```bash
+   docker network ls
+   ```
+
+   将结果写入本仓库 `.env` 的 **`EXTERNAL_MYSQL_NETWORK`**（默认示例：`slowwindow_slowwindow-network`，不对则必改）。
+
+2. **建库与表（一次性）**  
+   在宿主机执行（密码与 slowwindow `.env` 里 root 一致，`001_schema.sql` 会 `CREATE DATABASE onepaper` 并建表）：
+
+   ```bash
+   docker exec -i slowwindow-mysql mysql -uroot -p"$DB_ROOT_PASSWORD" < migrations/001_schema.sql
+   ```
+
+   若更愿意复用业务账号 `${DB_USER}`，在 MySQL 里执行 `GRANT ALL ON onepaper.* TO '${DB_USER}'@'%'; FLUSH PRIVILEGES;` 后，把 `config.yaml` 里 dsn 改成 `${DB_USER}:${DB_PASSWORD}@tcp(slowwindow-mysql:3306)/onepaper?...`（见 `config.docker.example.yaml` 注释）。
+
+3. **配置**  
+   `cp config.docker.example.yaml config.yaml`，确认 dsn 里主机为 **`slowwindow-mysql`**（与对方 `container_name` 一致；若对方改成别名/服务名，则同步改这里）。
+
+4. **环境变量**  
+   `cp .env.example .env`：填写 **`OPENAI_API_KEY`**、**`EXTERNAL_MYSQL_NETWORK`**、**`DB_ROOT_PASSWORD`**（与 slowwindow 一致）。
+
+5. **启动**
+
+   ```bash
+   docker compose build --no-cache   # 首次或依赖大变时
+   docker compose up -d
+   ```
+
+   日志：`docker compose logs -f onepaper`  
+   停止（不删 `onepaper-data` 卷）：`docker compose down`
+
+**原理**：onepaper 通过 **`external: true`** 加入对方栈已创建的 bridge 网络，DNS 可解析 `slowwindow-mysql`。不需要再给 onepaper 单独起一个 MySQL，也**不会**占用第二个 3306 宿主机映射（对方 MySQL 本身也可不暴露端口）。
+
+### 独立 MySQL（不共用 slowwindow）
+
+使用 **`docker-compose.local-mysql.yml`**（自带 MySQL，数据默认 `./data/mysql`）：
 
 ```bash
-docker compose build --no-cache
-docker compose up -d
+docker compose -f docker-compose.local-mysql.yml up -d --build
 ```
 
-查看日志：
+此时 `config.yaml` 里 dsn 主机应改为 **`mysql`**，root 密码与 `.env` 里 **`MYSQL_ROOT_PASSWORD`**（可配合容器内 **`DB_ROOT_PASSWORD`**）一致。
 
-```bash
-docker compose logs -f onepaper
-```
-
-停止：
-
-```bash
-docker compose down
-```
-
-### 与应用一起启动 MySQL
-
-1. 复制 `config.docker.example.yaml` 为 `config.yaml`（或自行把 `database.dsn` 的主机改为 **`mysql`**，密码与 `docker-compose.mysql.yml` 中 `MYSQL_ROOT_PASSWORD` 一致）。
-2. 启动：
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml up -d
-```
-
-首次启动 MySQL 会执行 `migrations/001_schema.sql` 初始化表（仅在新数据卷上执行一次）。
-
-### 快速更新（拉代码后重建并启动）
-
-在项目根目录执行：
+### 快速更新
 
 ```bash
 git pull
@@ -114,23 +125,20 @@ docker compose build
 docker compose up -d
 ```
 
-若使用 MySQL 叠加文件：
+（独立 MySQL 时把 `docker compose` 换成带 `-f docker-compose.local-mysql.yml` 的同序命令。）
 
-```bash
-git pull
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml build
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml up -d
-```
-
-说明：
-
-- **`build`**：镜像随代码变更更新；依赖不变时也可只 `docker compose up -d --build` 一步完成构建并启动。
-- **数据**：`onepaper-data`（应用数据）与 `mysql-data`（若使用 compose MySQL）由卷持久化；`down` 默认不删卷，数据仍在。
+- **`onepaper-data`**：配图等命名卷；`docker compose down` 默认**不删除**。
+- **复用外部 MySQL**：数据仍在对方 `/data/mysql`（或其卷）中，与本项目卷无关。
 
 ### 端口与环境变量
 
-- 默认映射 **`8080:8080`**，可在 `.env` 中设置 `APP_PORT=9000` 等修改宿主机端口。
-- `OPENAI_API_KEY`、`WECHAT_APP_ID`、`WECHAT_APP_SECRET` 建议放在 `.env`，避免写进 `config.yaml` 入库。
+- **`9090:8080`**：宿主机访问 onepaper 健康检查等，可在 `.env` 改 **`APP_PORT`**。
+- 敏感项用 **`.env`** + `config.yaml` 里 `${VAR}`，避免把密钥提交进仓库。
+
+### 与本机其它服务是否冲突？
+
+- **复用 slowwindow MySQL**：只要 **Docker 网络名配对**、库 `onepaper` 已建，一般**无端口冲突**（对方 MySQL 可不对外暴露 3306）。
+- **独立 MySQL 模式**：若宿主机 3306 已被占用，在 `.env` 设置 **`MYSQL_PORT=3307`** 等。
 
 ### 微信说明
 
